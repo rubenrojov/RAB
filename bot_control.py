@@ -30,11 +30,11 @@ from telegram.ext import (
 # ==============================================================================
 TOKEN           = "TU_TOKEN_AQUI"
 MI_USUARIO_ID   = 123456789
-ROOT_DIR        = "/home/ruben"
+ROOT_DIR        = "/home/$USER"
 ZONA_HORARIA    = pytz.timezone("Europe/Madrid")
-LOG_ACTIVIDAD   = "/home/ruben/rab_actividad.log"
-METRICAS_CSV    = "/home/ruben/rab_metricas.csv"
-NOTAS_FILE      = "/home/ruben/rab_notas.txt"
+LOG_ACTIVIDAD   = "/home/$USER/rab_actividad.log"
+METRICAS_CSV    = "/home/$USER/rab_metricas.csv"
+NOTAS_FILE      = "/home/$USER/rab_notas.txt"
 WG_INTERFACE    = "wg0"
 LAN_RED         = "192.168.0.0/24"
 

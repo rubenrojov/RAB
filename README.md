@@ -380,7 +380,7 @@ sudo apt update && sudo apt install -y \
 Instalar siguiendo la [guía oficial para Raspberry Pi](https://docs.docker.com/engine/install/raspberry-pi-os/) y añadir el usuario al grupo:
 
 ```bash
-sudo usermod -aG docker ruben
+sudo usermod -aG docker $USER
 # Cerrar sesión y volver a entrar para que tenga efecto
 newgrp docker
 ```
@@ -403,8 +403,8 @@ newgrp docker
 ### 2. Clonar el repositorio
 
 ```bash
-git clone https://gitea.tudominio.com/ruben/rab-bot.git /home/ruben/tgbot
-cd /home/ruben/tgbot
+git clone https://gitea.tudominio.com/$USER/rab-bot.git /home/$USER/tgbot
+cd /home/$USER/tgbot
 ```
 
 ### 3. Crear el entorno virtual Python
@@ -436,7 +436,7 @@ deactivate
 ## Configuración del bot
 
 ```bash
-nano /home/ruben/tgbot/bot_control.py
+nano /home/$USER/tgbot/bot_control.py
 ```
 
 ### Variables obligatorias
@@ -450,7 +450,7 @@ PIN_SECRETO   = "000000"      # ← CAMBIA ESTO antes de arrancar
 ### Variables opcionales pero recomendadas
 
 ```python
-ROOT_DIR      = "/home/ruben"    # raíz del explorador de archivos
+ROOT_DIR      = "/home/$USER"    # raíz del explorador de archivos
 WG_INTERFACE  = "wg0"            # nombre de la interfaz WireGuard
 LAN_RED       = "192.168.0.0/24" # red local para el escaneo nmap
 
@@ -491,11 +491,11 @@ CMDS_FAVORITOS = {
 Crea el fichero `.env` (excluido en `.gitignore`):
 
 ```bash
-cat > /home/ruben/tgbot/.env << EOF
+cat > /home/$USER/tgbot/.env << EOF
 RAB_TOKEN=123456789:ABCdef...
 RAB_PIN=tu_pin_secreto
 EOF
-chmod 600 /home/ruben/tgbot/.env
+chmod 600 /home/$USER/tgbot/.env
 ```
 
 En `bot_control.py`, sustituye las líneas de TOKEN y PIN por:
@@ -509,7 +509,7 @@ PIN_SECRETO = os.environ.get("RAB_PIN", "000000")
 Añade en el `[Service]` del `.service`:
 
 ```ini
-EnvironmentFile=/home/ruben/tgbot/.env
+EnvironmentFile=/home/$USER/tgbot/.env
 ```
 
 ---
@@ -525,7 +525,7 @@ sudo visudo
 Añade al final (verifica rutas con `which <comando>`):
 
 ```
-ruben ALL=(ALL) NOPASSWD: /usr/bin/wg, \
+$USER ALL=(ALL) NOPASSWD: /usr/bin/wg, \
     /usr/bin/fail2ban-client, \
     /usr/sbin/fail2ban-client, \
     /usr/sbin/shutdown, \
@@ -558,9 +558,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=ruben
-WorkingDirectory=/home/ruben/tgbot
-ExecStart=/home/ruben/tgbot/venv/bin/python /home/ruben/tgbot/bot_control.py
+User=$USER
+WorkingDirectory=/home/$USER/tgbot
+ExecStart=/home/$USER/tgbot/venv/bin/python /home/$USER/tgbot/bot_control.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -573,7 +573,7 @@ WantedBy=multi-user.target
 ### Instalar y activar
 
 ```bash
-sudo cp /home/ruben/tgbot/rab-bot.service /etc/systemd/system/
+sudo cp /home/$USER/tgbot/rab-bot.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable rab-bot
 sudo systemctl start rab-bot
@@ -669,7 +669,7 @@ El dict `CMDS_FAVORITOS` mapea etiquetas a comandos shell. Al pulsar un botón, 
 
 ### Notas rápidas
 
-Se guardan en `NOTAS_FILE` (por defecto `/home/ruben/rab_notas.txt`) con timestamp. Se pueden añadir nuevas o borrar todas desde el bot.
+Se guardan en `NOTAS_FILE` (por defecto `/home/$USER/rab_notas.txt`) con timestamp. Se pueden añadir nuevas o borrar todas desde el bot.
 
 ---
 
@@ -716,13 +716,13 @@ El servicio no está usando el entorno virtual correcto.
 
 ```bash
 # Verificar que el venv existe
-ls /home/ruben/tgbot/venv/bin/python
+ls /home/$USER/tgbot/venv/bin/python
 
 # Verificar instalación
-/home/ruben/tgbot/venv/bin/pip list | grep telegram
+/home/$USER/tgbot/venv/bin/pip list | grep telegram
 
 # Reinstalar si falta
-/home/ruben/tgbot/venv/bin/pip install -r /home/ruben/tgbot/requirements.txt
+/home/$USER/tgbot/venv/bin/pip install -r /home/$USER/tgbot/requirements.txt
 ```
 
 Asegúrate de que `ExecStart` apunta a `venv/bin/python` y **no** a `/usr/bin/python3`.
@@ -810,7 +810,7 @@ Si alguno pide contraseña, revisa que la ruta en el bloque `NOPASSWD` sea exact
 
 ```bash
 # Verificar que job-queue está instalado
-source /home/ruben/tgbot/venv/bin/activate
+source /home/$USER/tgbot/venv/bin/activate
 python -c "from telegram.ext import JobQueue; print('OK')"
 deactivate
 ```
@@ -818,7 +818,7 @@ deactivate
 Si falla, reinstalar con el extra correcto:
 
 ```bash
-source /home/ruben/tgbot/venv/bin/activate
+source /home/$USER/tgbot/venv/bin/activate
 pip install "python-telegram-bot[job-queue]==21.6"
 deactivate
 sudo systemctl restart rab-bot
@@ -850,7 +850,7 @@ MI_USUARIO_ID = "123456789"  # incorrecto
 ## Actualizar
 
 ```bash
-cd /home/ruben/tgbot
+cd /home/$USER/tgbot
 git pull
 source venv/bin/activate
 pip install -r requirements.txt
@@ -871,9 +871,9 @@ tgbot/
 └── README.md           # esta documentación
 
 # Ficheros generados en tiempo de ejecución (no incluir en el repo):
-/home/ruben/rab_actividad.log   # log CSV de acciones del bot
-/home/ruben/rab_metricas.csv    # histórico de métricas del sistema
-/home/ruben/rab_notas.txt       # notas guardadas desde el bot
+/home/$USER/rab_actividad.log   # log CSV de acciones del bot
+/home/$USER/rab_metricas.csv    # histórico de métricas del sistema
+/home/$USER/rab_notas.txt       # notas guardadas desde el bot
 ```
 
 ---
