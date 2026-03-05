@@ -1,153 +1,339 @@
-# RAB — Raspberry Admin Bot v3.0
+# RAB — Raspberry Admin Bot v4.0
 
-> Bot de Telegram para administración completa de una Raspberry Pi desde Telegram, sin necesidad de abrir ninguna consola SSH.
+> Bot de Telegram para administración completa de una Raspberry Pi desde el móvil, sin necesidad de abrir ninguna consola SSH. Protegido con PIN de sesión.
 
 ---
 
 ## Índice
 
-1. [Funcionalidades](#funcionalidades)
-2. [Arquitectura y funcionamiento](#arquitectura-y-funcionamiento)
-3. [Capturas de pantalla](#capturas-de-pantalla)
-4. [Requisitos del sistema](#requisitos-del-sistema)
-5. [Instalación paso a paso](#instalación-paso-a-paso)
-6. [Configuración del bot](#configuración-del-bot)
-7. [Permisos sudo](#permisos-sudo)
-8. [Servicio systemd](#servicio-systemd)
-9. [Descripción detallada de módulos](#descripción-detallada-de-módulos)
-10. [Alertas proactivas](#alertas-proactivas)
-11. [Troubleshooting](#troubleshooting)
+1. [Novedades v4.0](#novedades-v40)
+2. [Funcionalidades completas](#funcionalidades-completas)
+3. [Arquitectura y funcionamiento](#arquitectura-y-funcionamiento)
+4. [Capturas de pantalla](#capturas-de-pantalla)
+5. [Requisitos del sistema](#requisitos-del-sistema)
+6. [Instalación paso a paso](#instalación-paso-a-paso)
+7. [Configuración del bot](#configuración-del-bot)
+8. [Permisos sudo](#permisos-sudo)
+9. [Servicio systemd](#servicio-systemd)
+10. [Descripción detallada de módulos](#descripción-detallada-de-módulos)
+11. [Alertas proactivas](#alertas-proactivas)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
-## Funcionalidades
+## Novedades v4.0
 
-| Módulo | Descripción |
-|--------|-------------|
-| 📊 **Sistema** | Dashboard en tiempo real, top procesos, salud SD, info de red, montajes |
-| 📈 **Métricas** | Histórico de CPU/RAM/disco/temp con sparklines ASCII |
-| ⚙️ **Servicios** | Estado WireGuard, logs Fail2Ban/SSH/Docker, cronjobs, servicios systemd |
-| 🛡️ **Red/Seg** | Test velocidad, peers WG, jails Fail2Ban, IPs baneadas, desbanear, puertos, Geo-IP |
-| 📦 **APT** | Paquetes actualizables, actualizar todo, limpieza, historial |
-| 🐳 **Docker** | Listar contenedores, start/stop/restart, logs, stats, imágenes, prune |
-| 📂 **Archivos** | Explorador, previsualizar, subir, descargar, borrar, crear carpetas, buscar |
-| 🛠️ **Avanzado** | Terminal interactiva, ejecutar scripts .sh, Wake-on-LAN, reiniciar, apagar |
-| ⚠️ **Alertas** | Recursos, servicios caídos, contenedores caídos, intentos de login |
-| ☀️ **Resumen diario** | Informe automático cada mañana a las 08:00 |
+### 🔐 Seguridad — PIN de sesión
+
+El bot ahora requiere un PIN numérico al iniciar. Sin PIN validado, ningún botón ni comando funciona aunque el ID de Telegram sea el correcto. Esto protege el bot en caso de que el token quede expuesto.
+
+- Sesión activa durante 4 horas (configurable con `PIN_TTL_MIN`)
+- Bloqueo automático tras 3 intentos fallidos durante 15 minutos
+- Alerta inmediata al propietario si alguien accede con un ID desconocido
+- Alerta si se agotan los intentos de PIN
+
+### 🗂️ Menú reorganizado por frecuencia de uso
+
+```
+┌─────────────────┬──────────────────┐
+│  📊 Dashboard   │  🐳 Docker       │  ← más frecuente arriba
+├─────────────────┼──────────────────┤
+│  📂 Archivos    │  💻 Terminal     │  ← terminal directa, sin submenú
+├─────────────────┼──────────────────┤
+│  🛡️ Red/Seg    │  📦 APT          │
+├─────────────────┼──────────────────┤
+│  ⚙️ Sistema    │  🛠️ Avanzado     │
+└─────────────────┴──────────────────┘
+```
+
+Cambios respecto a v3.0:
+- **Dashboard** sube a primera posición y absorbe Métricas
+- **Terminal** accesible directamente desde el menú principal
+- **Servicios** desaparece como menú propio — logs redistribuidos en Red/Seg
+- **Métricas** fusionadas dentro de Dashboard
+
+### 📊 Dashboard ampliado
+
+- Uso de red en tiempo real (KB/s por interfaz)
+- Historial de reinicios con motivo del boot anterior
+- Procesos zombies con opción de kill por PID
+- Estado de VPN visible directamente en el dashboard
+
+### 🛡️ Red/Seg expandido
+
+- VPN on/off — encender/apagar WireGuard con confirmación, botón dinámico según estado actual
+- Ping + Traceroute — introducir IP o dominio y obtener ambos resultados
+- Escaneo LAN — `nmap -sn 192.168.0.0/24` para ver dispositivos activos
+- Bloque de Logs completo: SSH logins OK, SSH fallidos, VPN, Fail2Ban, actividad del bot, errores del sistema, reinicios
+
+### 🛠️ Avanzado ampliado
+
+- **Comandos favoritos** — lista configurable ejecutable con un toque
+- **Notas rápidas** — guardar, ver y borrar notas con timestamp
+- **Silenciar alertas** — 1h, 4h o indefinido, con reactivación manual
+- **Umbrales editables** — subir/bajar CPU/RAM/disco/temperatura ±5 desde el bot sin editar el script
+
+### ⚙️ Sistema
+
+- Calculadora de espacio — analizar `/`, `/home`, `/var/lib/docker` o ruta personalizada
+
+---
+
+## Funcionalidades completas
+
+| Módulo | Funciones |
+|--------|-----------|
+| 🔐 **Seguridad** | PIN sesión, bloqueo por intentos, alertas de acceso ajeno, expiración automática |
+| 📊 **Dashboard** | Sistema en vivo, métricas históricas, uso de red real, top procesos, zombies+kill, reinicios, salud SD, montajes |
+| 🛡️ **Red** | Test velocidad, VPN on/off, WG peers, ping/traceroute, escaneo LAN, puertos, Geo-IP |
+| 🔒 **Seguridad** | Jails Fail2Ban, IPs baneadas, desbanear IP |
+| 📋 **Logs** | SSH OK, SSH fallidos, VPN, Fail2Ban, actividad bot, errores sistema, reinicios |
+| 📦 **APT** | Paquetes actualizables, actualizar, limpiar, historial |
+| 🐳 **Docker** | Listar, start/stop/restart, logs, stats, imágenes, log servicio, prune |
+| 📂 **Archivos** | Explorador, previsualizar, subir, descargar, borrar, carpetas, buscar, ocultos |
+| 💻 **Terminal** | Terminal interactiva directa desde el menú principal |
+| ⚙️ **Sistema** | Interfaces de red, cronjobs, servicios systemd, calculadora de espacio |
+| 🛠️ **Avanzado** | Comandos favoritos, notas, WOL, scripts .sh, silenciar alertas, umbrales, reboot, shutdown |
+| ⚠️ **Alertas** | Recursos, servicios caídos, contenedores caídos, intentos de login, resumen diario 08:00 |
 
 ---
 
 ## Arquitectura y funcionamiento
 
-### Visión general
+### Flujo general
 
 ```
-Telegram App  <-->  Telegram Servers  <-->  RAB Bot (Raspberry Pi)
-                                             |
-                                             ├── python-telegram-bot (polling)
-                                             ├── Jobs periódicos (job_queue)
-                                             ├── psutil (métricas del sistema)
-                                             ├── subprocess (comandos del sistema)
-                                             └── Archivos CSV (métricas e historial)
+Tu móvil → Servidores Telegram → Raspberry Pi (polling)
+                                       │
+                              python-telegram-bot
+                                       │
+                          ┌────────────┴────────────┐
+                     Handlers                   Job Queue
+                  (botones y texto)         (monitores cada Xmin)
+                          │                        │
+                    subprocess / psutil      subprocess / psutil
+                          │                        │
+                    Sistema operativo        Alertas proactivas
 ```
 
-### Flujo de una interacción
+### Flujo de autenticación
 
-1. El usuario pulsa un botón en Telegram → genera un `callback_query`
-2. `router_botones()` recibe el `callback_data` y ejecuta la acción correspondiente
-3. Para operaciones de sistema se usa `exec_cmd()` que llama a `subprocess.run()`
-4. El resultado se formatea y se envía de vuelta al chat con `edit_message_text()`
+```
+/start recibido
+    │
+    ├─ ID desconocido ──→ silencio + alerta "Intento de acceso: ID XXXXX"
+    │
+    └─ ID correcto (MI_USUARIO_ID)
+           │
+           ├─ Bot bloqueado (3 fallos) ──→ "Espera X minutos"
+           │
+           ├─ Sesión activa y no expirada ──→ Panel principal
+           │
+           └─ Sin sesión válida ──→ "Introduce PIN:"
+                    │
+                    ├─ Correcto ──→ sesión 4h ──→ Panel principal
+                    ├─ Fallo 1-2 ──→ "X intentos restantes"
+                    └─ Fallo 3 ──→ bloqueo 15min + alerta al propietario
+```
 
-### Modo de entrada de texto
+### Estados de modo (context.user_data['mode'])
 
-Algunas acciones requieren que el usuario escriba texto (terminal, desbanear IP, geo-IP, crear carpeta, buscar archivo). El bot usa `context.user_data['mode']` para saber en qué estado se encuentra y `handle_everything()` gestiona el mensaje recibido según ese modo.
+El bot usa un sistema de estados para gestionar la entrada de texto:
+
+| Modo | Acción esperada |
+|------|----------------|
+| `pin` | Introducir el PIN de acceso |
+| `terminal` | Ejecutar el texto como comando shell |
+| `upload` | Enviar documento para guardarlo |
+| `unban_ip` | Escribir IP a desbanear |
+| `geoip` | Escribir IP a consultar |
+| `ping` | Escribir host para ping/traceroute |
+| `mkdir` | Nombre de carpeta nueva |
+| `file_search` | Término de búsqueda de archivos |
+| `espacio` | Ruta para calcular espacio |
+| `notas_add` | Texto de la nota a guardar |
+| `None` | Informa de usar /start |
 
 ### Sistema de caché de paths
 
-Los `callback_data` de Telegram tienen un límite de 64 bytes. Para el explorador de archivos, los paths del sistema pueden ser más largos. La solución es un diccionario `_PATH_CACHE` que mapea un hash MD5 de 12 caracteres al path completo:
-
-```python
-_PATH_CACHE: dict = {}
-
-def path_a_key(path: str) -> str:
-    key = hashlib.md5(path.encode()).hexdigest()[:12]
-    _PATH_CACHE[key] = path
-    return key
-```
+Los `callback_data` de Telegram tienen límite de 64 bytes. Para el explorador de archivos se usa el diccionario `_PATH_CACHE` en memoria que mapea un hash MD5 de 12 caracteres al path completo.
 
 ---
 
 ## Capturas de pantalla
 
+### Pantalla de PIN
+
+```
+🔐 RAB v4.0 — Acceso protegido
+
+Introduce el PIN de acceso:
+```
+
+```
+❌ PIN incorrecto. 2 intento(s) restante(s):
+```
+
+```
+🔒 Demasiados intentos fallidos.
+Bot bloqueado 15 minutos.
+```
+
 ### Menú principal
 
 ```
-🏠 Panel de Control RAB v3.0
-15/01/2025 08:32
+🏠 Panel de Control RAB v4.0
+15/01/2025 09:14
 
 ┌─────────────────┬──────────────────┐
-│  📊 Sistema     │  ⚙️ Servicios    │
+│  📊 Dashboard   │  🐳 Docker       │
 ├─────────────────┼──────────────────┤
-│  📦 APT/Manten  │  🛡️ Red/Seg     │
+│  📂 Archivos    │  💻 Terminal     │
 ├─────────────────┼──────────────────┤
-│  🐳 Docker      │  📂 Archivos     │
+│  🛡️ Red/Seg    │  📦 APT          │
 ├─────────────────┼──────────────────┤
-│  🛠️ Avanzado    │  📈 Métricas     │
+│  ⚙️ Sistema    │  🛠️ Avanzado     │
 └─────────────────┴──────────────────┘
 ```
 
-### Dashboard del sistema
+### Dashboard en vivo
 
 ```
 📊 Dashboard del Sistema
 
-🟢  CPU:   12%
-🟢  RAM:   54%  (556MB/1024MB)
-🟢  Disco: 38%  (14GB/32GB)
-🟢  Temp:  48.2C
-📶  IP:     192.168.1.42
-⏱️  Uptime: 12d 4h 22m
-⚖️  Carga:  0.15 / 0.18 / 0.12
+🟢 CPU:    8%
+🟢 RAM:    54%  (554MB/1024MB)
+🟢 Disco:  38%  (12GB/32GB)
+🟢 Temp:   48.1C
+🟢 VPN:    activa
+📶 IP:     192.168.0.42
+⏱️ Uptime:  12d 4h 22m
+⚖️ Carga:   0.12 / 0.15 / 0.10
 
-         [⬅️ Volver]
+        [⬅️ Volver]
 ```
 
-### Docker — lista de contenedores
+### Métricas históricas
 
 ```
-🐳 Contenedores:
+📈 Métricas Históricas
 
-🟢 portainer            Up 12 days
-🟢 nginx-proxy          Up 12 days
-🟢 vaultwarden          Up 12 days
-🔴 syncthing            Exited (1) 2h ago
+🖥️ CPU   ▁▁▂▁▁▃▂▁▁▂▄▃▂▁▁▂▁▁▃▂▁▁▂▁  8%
+🧠 RAM   ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ 54%
+💾 Disco ▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃ 38%
+🌡️ Temp  ▃▃▃▃▄▃▃▃▃▃▃▃▄▄▃▃▃▃▃▃▃▃▃▃ 48.1C
 
-┌──────────────┬────┬────┬────┐
-│ 📜 portainer │ ⏹  │ ▶️ │ 🔄 │
-├──────────────┼────┼────┼────┤
-│ 📜 nginx     │ ⏹  │ ▶️ │ 🔄 │
-├──────────────┼────┼────┼────┤
-│ 📜 vault     │ ⏹  │ ▶️ │ 🔄 │
-├──────────────┼────┼────┼────┤
-│ 📜 syncthing │ ⏹  │ ▶️ │ 🔄 │
-└──────────────┴────┴────┴────┘
-         [⬅️ Volver]
+Última: 09:10
 ```
 
-### Métricas históricas (sparklines)
+### Uso de red en tiempo real
 
 ```
-📈 Métricas Historicas
+🌐 Uso de Red en Tiempo Real
 
-🖥️ CPU   `▁▁▂▁▁▃▂▁▁▂▄▃▂▁▁▂▁▁▃▂▁▁▂▁` 12%
-🧠 RAM   `▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄` 54%
-💾 Disco `▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃` 38%
-🌡️ Temp  `▃▃▃▃▄▃▃▃▃▃▃▃▄▄▃▃▃▃▃▃▃▃▃▃` 48.1C
+*eth0*
+  ⬇️ 42.3 KB/s  (total: 1842MB recibidos)
+  ⬆️ 8.1 KB/s   (total: 312MB enviados)
 
-Ultima: 08:30
+*wlan0*
+  ⬇️ 0.0 KB/s   (total: 0MB)
+  ⬆️ 0.0 KB/s   (total: 0MB)
 ```
 
-### Alerta automática de recursos
+### Procesos zombies
+
+```
+☠️ Procesos Zombies:
+
+PID 1842 `defunct` (ppid:1)
+PID 2301 `sh` (ppid:1842)
+
+[💀 Kill 1842 (defunct)  ]
+[💀 Kill 2301 (sh)       ]
+[⬅️ Volver              ]
+```
+
+```
+⚠️ Matar proceso PID 1842?
+
+[💀 Si, kill 1842]  [❌ Cancelar]
+```
+
+### Red/Seg — menú completo
+
+```
+🛡️ Red y Seguridad
+
+─── 🌐 RED ─────────────────────────
+[🚀 Test velocidad              ]
+[🟢 VPN — Encender              ]  ← dinámico
+[🛰️ WireGuard peers             ]
+[📡 Ping / Traceroute           ]
+[🔍 Escaneo LAN                 ]
+[🔌 Puertos abiertos            ]
+[🌍 Geo-IP                      ]
+
+─── 🔒 SEGURIDAD ────────────────────
+[🚨 Jails Fail2Ban              ]
+[🚫 IPs baneadas                ]
+[🔓 Desbanear IP                ]
+
+─── 📋 LOGS ─────────────────────────
+[🔑 SSH logins OK] [❌ SSH fallidos]
+[🛰️ Log VPN      ] [🛡️ Log Fail2Ban]
+[🤖 Actividad bot] [💥 Errores sist]
+[🔄 Log reinicios               ]
+[⬅️ Volver                     ]
+```
+
+### Avanzado — menú
+
+```
+🛠️ Herramientas Avanzadas
+
+─── ⚡ HERRAMIENTAS ─────────────────
+[📌 Comandos favoritos          ]
+[📝 Notas rápidas               ]
+[🪄 Wake-on-LAN                 ]
+[📜 Ejecutar .sh                ]
+
+─── 🔔 ALERTAS ──────────────────────
+[🔕 Silenciar alertas           ]
+[⚙️ Ajustar umbrales            ]
+
+─── ⚠️ PELIGROSO ────────────────────
+[🔄 Reiniciar sistema           ]
+[⏻ Apagar sistema               ]
+[⬅️ Volver                     ]
+```
+
+### Umbrales editables desde el bot
+
+```
+⚙️ Umbrales de Alerta (±5 por pulsación)
+
+[🖥️ CPU: 80%  ] [➖] [➕]
+[🧠 RAM: 85%  ] [➖] [➕]
+[💾 Disco: 90%] [➖] [➕]
+[🌡️ Temp: 70C ] [➖] [➕]
+[⬅️ Volver    ]
+```
+
+### Silenciar alertas
+
+```
+🔔 Control de Alertas
+
+🔔 Alertas activas
+
+[🔕 Silenciar 1h          ]
+[🔕 Silenciar 4h          ]
+[🔕 Silenciar indefinido  ]
+[🔔 Reactivar ahora       ]
+[⬅️ Volver               ]
+```
+
+### Alertas proactivas automáticas
 
 ```
 ⚠️ ALERTA DE RECURSOS
@@ -156,45 +342,11 @@ Ultima: 08:30
 🔴 RAM al 91% (umbral 85%)
 ```
 
-### Explorador de archivos
-
 ```
-📍 `/home/$USER`
-_1-8 de 23_
-
-[📁 ⬆️ Subir nivel        ]
-[📁 docker               ]
-[📁 tgbot                ]
-[📁 backups              ]
-[📄 .bashrc              ]
-[📄 .ssh                 ]
-[📄 notas.txt            ]
-[📄 script.sh            ]
-
-[◀️ Ant]          [Sig ▶️]
-
-[📤 Subir archivo] [📁 Nueva carpeta]
-[🔍 Buscar]  [👁️ Ocultos: OFF]
-[⬅️ Volver]
+🚨 Intento de acceso al bot
+ID: `987654321`
+Nombre: John Doe
 ```
-
-### Terminal interactiva
-
-```
-💻 Terminal Activa
-Envia cualquier comando. Escribe `salir` para cerrar.
-
-> df -h
-
-Filesystem      Size  Used Avail Use% Mounted on
-/dev/mmcblk0p2   30G   11G   18G  38% /
-tmpfs           459M     0  459M   0% /dev/shm
-/dev/mmcblk0p1  253M   49M  204M  20% /boot
-
-[🏠 Menu]  [❌ Cerrar terminal]
-```
-
-### Resumen diario automático (08:00)
 
 ```
 ☀️ Resumen Diario — 15/01/2025 08:00
@@ -203,65 +355,56 @@ tmpfs           459M     0  459M   0% /dev/shm
 🧠 RAM:      51% (522MB/1024MB)
 💾 Disco:    38%
 🌡️ Temp:     46.1C
-🌐 IP local: 192.168.1.42
+🌐 IP local: 192.168.0.42
 ⏱️ Uptime:   12d 4h 0m
-🐳 Docker:   4 corriendo: portainer, nginx-proxy, vaultwarden, syncthing
+🐳 Docker:   4 corriendo: portainer, nginx, vaultwarden, syncthing
 ```
 
 ---
 
 ## Requisitos del sistema
 
-### Paquetes del sistema operativo
+### Paquetes APT
 
 ```bash
 sudo apt update && sudo apt install -y \
-    python3 \
-    python3-pip \
-    python3-venv \
-    wireguard \
-    fail2ban \
-    speedtest-cli \
-    wakeonlan \
-    iproute2 \
-    procps
+    python3 python3-pip python3-venv \
+    wireguard fail2ban \
+    speedtest-cli wakeonlan \
+    nmap traceroute \
+    iproute2 procps
 ```
 
-> **Nota:** Docker debe estar instalado por separado siguiendo la
-> [guía oficial para Raspberry Pi](https://docs.docker.com/engine/install/raspberry-pi-os/).
+### Docker
 
-Añadir el usuario al grupo `docker` para que el bot pueda ejecutar
-comandos Docker sin sudo:
+Instalar siguiendo la [guía oficial para Raspberry Pi](https://docs.docker.com/engine/install/raspberry-pi-os/) y añadir el usuario al grupo:
 
 ```bash
-sudo usermod -aG docker $USER
-# Es necesario cerrar sesión y volver a entrar para que tenga efecto
+sudo usermod -aG docker ruben
+# Cerrar sesión y volver a entrar para que tenga efecto
+newgrp docker
 ```
-
-### Requisitos de Python
-
-- Python 3.9 o superior (Raspbian Trixie incluye 3.11)
-- Se usa un **entorno virtual** para aislar las dependencias del resto del sistema
 
 ---
 
 ## Instalación paso a paso
 
-### 1. Obtener el token del bot
+### 1. Obtener credenciales de Telegram
 
-1. Abre Telegram y busca **@BotFather**
+**Token del bot:**
+1. Busca **@BotFather** en Telegram
 2. Envía `/newbot` y sigue las instrucciones
-3. Guarda el token que te proporciona (formato: `123456789:ABCdef...`)
+3. Guarda el token (formato: `123456789:ABCdef...`)
 
-Para obtener tu ID de usuario:
+**Tu ID de usuario:**
 1. Busca **@userinfobot** en Telegram
-2. Envía `/start` — te responderá con tu `Id` numérico
+2. Envía `/start` — te responde con tu `Id` numérico
 
 ### 2. Clonar el repositorio
 
 ```bash
-git clone https://https://github.com/rubenrojov/RAB /home/$USER/tgbot
-cd /home/$USER/tgbot
+git clone https://gitea.tudominio.com/ruben/rab-bot.git /home/ruben/tgbot
+cd /home/ruben/tgbot
 ```
 
 ### 3. Crear el entorno virtual Python
@@ -276,7 +419,7 @@ source venv/bin/activate
 # Instalar dependencias
 pip install -r requirements.txt
 
-# Desactivarlo (el servicio systemd lo activará automáticamente)
+# Desactivarlo
 deactivate
 ```
 
@@ -292,92 +435,132 @@ deactivate
 
 ## Configuración del bot
 
-Edita las primeras líneas de `bot_control.py` con tu editor favorito:
-
 ```bash
-nano /home/$USER/tgbot/bot_control.py
+nano /home/ruben/tgbot/bot_control.py
 ```
 
-```python
-# ============================================================
-# CONFIGURACIÓN — edita estas líneas
-# ============================================================
-TOKEN         = "123456789:ABCdefGHIjklMNOpqrSTUvwxYZ"  # token de @BotFather
-MI_USUARIO_ID = 123456789        # tu ID numérico de Telegram
-ROOT_DIR      = "/home/$USER"    # raíz del explorador de archivos
+### Variables obligatorias
 
-# Equipos para Wake-on-LAN (nombre: dirección MAC)
+```python
+TOKEN         = "123456789:ABCdefGHIjklMNOpqrSTUvwxYZ"  # de @BotFather
+MI_USUARIO_ID = 123456789     # tu ID numérico de Telegram
+PIN_SECRETO   = "000000"      # ← CAMBIA ESTO antes de arrancar
+```
+
+### Variables opcionales pero recomendadas
+
+```python
+ROOT_DIR      = "/home/ruben"    # raíz del explorador de archivos
+WG_INTERFACE  = "wg0"            # nombre de la interfaz WireGuard
+LAN_RED       = "192.168.0.0/24" # red local para el escaneo nmap
+
+PIN_TTL_MIN      = 240  # minutos de sesión activa (4h por defecto)
+PIN_MAX_INTENTOS = 3    # intentos antes de bloqueo
+PIN_BLOQUEO_MIN  = 15   # minutos de bloqueo tras N fallos
+
+# Equipos para Wake-on-LAN
 WOL_MACS = {
     "PC-Principal": "AA:BB:CC:DD:EE:FF",
     "NAS":          "11:22:33:44:55:66",
 }
 
-# Umbrales para alertas automáticas
+# Umbrales de alerta (también ajustables desde el bot en tiempo real)
 UMBRALES = {
-    "cpu":  80,   # % de uso de CPU
-    "ram":  85,   # % de uso de RAM
-    "disk": 90,   # % de uso de disco
-    "temp": 70,   # temperatura en °C
+    "cpu":  80,
+    "ram":  85,
+    "disk": 90,
+    "temp": 70,
 }
 
-# Servicios systemd que se monitorizan cada 2 minutos
+# Servicios vigilados cada 2 minutos
 SERVICIOS_WATCH = ["docker", "wg-quick@wg0", "fail2ban", "ssh"]
+
+# Comandos favoritos — personaliza a tu gusto
+CMDS_FAVORITOS = {
+    "📊 Estado servicios": "systemctl status docker fail2ban ssh --no-pager | head -40",
+    "💾 Espacio disco":    "df -h",
+    "🧠 Memoria":          "free -h",
+    "🌡️ Temperatura":     "vcgencmd measure_temp",
+    "📋 Últimos errores":  "journalctl -p err -n 20 --no-pager",
+    "🐳 Docker ps":        "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'",
+}
 ```
 
-> ⚠️ **Seguridad:** Se recomienda no subir el token al repositorio.
-> Puedes sacarlo a una variable de entorno y leerla con `os.environ.get("RAB_TOKEN")`.
+### Mantener token y PIN fuera del repositorio (recomendado)
+
+Crea el fichero `.env` (excluido en `.gitignore`):
+
+```bash
+cat > /home/ruben/tgbot/.env << EOF
+RAB_TOKEN=123456789:ABCdef...
+RAB_PIN=tu_pin_secreto
+EOF
+chmod 600 /home/ruben/tgbot/.env
+```
+
+En `bot_control.py`, sustituye las líneas de TOKEN y PIN por:
+
+```python
+import os
+TOKEN       = os.environ.get("RAB_TOKEN", "")
+PIN_SECRETO = os.environ.get("RAB_PIN", "000000")
+```
+
+Añade en el `[Service]` del `.service`:
+
+```ini
+EnvironmentFile=/home/ruben/tgbot/.env
+```
 
 ---
 
 ## Permisos sudo
 
-El bot necesita ejecutar algunos comandos como root. La forma más segura es
-conceder permisos específicos con `visudo`, **sin dar acceso total a sudo**.
+El bot necesita ejecutar comandos privilegiados. Concede permisos específicos con `visudo` — **nunca acceso total a sudo**:
 
 ```bash
 sudo visudo
 ```
 
-Añade al final del archivo (ajusta las rutas con `which <comando>` si difieren):
+Añade al final (verifica rutas con `which <comando>`):
 
 ```
-$USER ALL=(ALL) NOPASSWD: /usr/bin/wg, \
+ruben ALL=(ALL) NOPASSWD: /usr/bin/wg, \
+    /usr/bin/fail2ban-client, \
     /usr/sbin/fail2ban-client, \
     /usr/sbin/shutdown, \
     /usr/sbin/reboot, \
     /usr/bin/apt-get, \
     /usr/bin/journalctl, \
-    /usr/bin/tail
+    /usr/bin/tail, \
+    /usr/bin/systemctl
 ```
 
-Verificar rutas en tu sistema:
+Verificar que funciona sin contraseña:
 
 ```bash
-which wg             # normalmente /usr/bin/wg
-which fail2ban-client # normalmente /usr/bin/fail2ban-client
-which shutdown       # normalmente /usr/sbin/shutdown
+sudo -n wg show
+sudo -n journalctl -p err -n 5 --no-pager
+sudo -n systemctl start wg-quick@wg0
 ```
 
 ---
 
 ## Servicio systemd
 
-Esto hace que el bot arranque automáticamente con el sistema y se reinicie
-si falla.
-
-### Contenido de `rab-bot.service`
+### Fichero `rab-bot.service`
 
 ```ini
 [Unit]
-Description=RAB - Raspberry Admin Bot v3.0
+Description=RAB - Raspberry Admin Bot v4.0
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=$USER
-WorkingDirectory=/home/$USER/tgbot
-ExecStart=/home/$USER/tgbot/venv/bin/python /home/$USER/tgbot/bot_control.py
+User=ruben
+WorkingDirectory=/home/ruben/tgbot
+ExecStart=/home/ruben/tgbot/venv/bin/python /home/ruben/tgbot/bot_control.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -387,43 +570,34 @@ StandardError=journal
 WantedBy=multi-user.target
 ```
 
-### Instalar y activar el servicio
+### Instalar y activar
 
 ```bash
-# Copiar el archivo de servicio
-sudo cp /home/$USER/tgbot/rab-bot.service /etc/systemd/system/
-
-# Recargar systemd para que detecte el nuevo servicio
+sudo cp /home/ruben/tgbot/rab-bot.service /etc/systemd/system/
 sudo systemctl daemon-reload
-
-# Habilitar el servicio (arrancará automáticamente tras cada reinicio)
 sudo systemctl enable rab-bot
-
-# Arrancarlo ahora mismo
 sudo systemctl start rab-bot
 
-# Verificar que está corriendo
+# Verificar que arranca
 sudo systemctl status rab-bot
 ```
 
-La salida de `status` debería mostrar `Active: active (running)`.
+La salida debe mostrar `Active: active (running)`.
 
-### Comandos útiles de gestión
+### Comandos de gestión
 
 ```bash
 # Ver logs en tiempo real
 sudo journalctl -u rab-bot -f
 
-# Ver los últimos 50 logs
+# Últimos 50 logs
 sudo journalctl -u rab-bot -n 50
 
-# Reiniciar el bot (necesario tras cambiar bot_control.py)
+# Reiniciar tras modificar bot_control.py
 sudo systemctl restart rab-bot
 
-# Parar el bot
+# Parar / Deshabilitar
 sudo systemctl stop rab-bot
-
-# Deshabilitar el arranque automático
 sudo systemctl disable rab-bot
 ```
 
@@ -431,299 +605,252 @@ sudo systemctl disable rab-bot
 
 ## Descripción detallada de módulos
 
-### `exec_cmd()` — ejecutor de comandos
+### Sistema de PIN y sesión
 
-```python
-async def exec_cmd(comando, shell=False, timeout=45) -> str:
-```
+Usa `context.bot_data` (memoria compartida del proceso) para almacenar el estado de autenticación. Se pierde al reiniciar el bot — en ese caso simplemente hay que introducir el PIN de nuevo.
 
-Función central del bot. Ejecuta cualquier comando del sistema de forma
-asíncrona usando `subprocess.run()`. Gestiona:
-- Timeout configurable para evitar que el bot se bloquee
-- Captura de `stdout` y `stderr`
-- Retorno limpio del resultado o mensaje de error descriptivo
+Variables en `bot_data`:
+- `pin_validado` — bool de sesión activa
+- `pin_timestamp` — datetime de última autenticación
+- `pin_intentos` — contador de fallos consecutivos
+- `pin_bloqueado_hasta` — datetime de desbloqueo (`None` si no hay bloqueo)
 
-### `get_temperatura()` — lectura de temperatura
+### `alertas_silenciadas()` — control de monitores
 
-Lee la temperatura del SoC de la Raspberry Pi desde el sistema de ficheros
-virtual `/sys/class/thermal/thermal_zone0/temp` (en milésimas de grado).
-Si falla, intenta con el comando `vcgencmd measure_temp` propio de Raspberry Pi.
+Helper que todos los monitores consultan antes de ejecutarse. Lee `bot_data['alertas_silenciadas_hasta']` y devuelve `True` si hay silencio activo, limpiando automáticamente el flag si ya expiró. Permite pausar todas las alertas sin reiniciar el bot.
+
+### `exec_cmd()` — ejecutor seguro de comandos
+
+Ejecuta cualquier comando del sistema vía `subprocess.run()`. Gestiona timeout configurable, captura de `stdout`/`stderr`, y devuelve siempre un string limpio o un mensaje de error descriptivo.
 
 ### `guardar_metrica()` y `leer_metricas_recientes()` — histórico
 
-Cada 5 minutos `monitor_recursos()` llama a `guardar_metrica()` que añade
-una línea al CSV `/home/$USER/rab_metricas.csv` con timestamp, CPU, RAM,
-disco y temperatura. `leer_metricas_recientes(n)` devuelve las últimas `n`
-mediciones para generar los sparklines del módulo de métricas.
+Cada 5 minutos se añade una línea al CSV con timestamp, CPU, RAM, disco y temperatura. `leer_metricas_recientes(n)` devuelve las últimas `n` mediciones para los sparklines.
 
-### `sparkline()` — gráficas ASCII
+### `sparkline()` — gráficas de bloques
 
-```python
-def sparkline(valores: list) -> str:
-    chars = ["▁","▂","▃","▄","▅","▆","▇","█"]
-```
+Convierte una lista de valores en caracteres Unicode `▁▂▃▄▅▆▇█`. Normaliza automáticamente entre el mínimo y máximo del conjunto.
 
-Convierte una lista de valores numéricos en una cadena de caracteres Unicode
-de bloques de altura variable. Normaliza automáticamente al rango mín-máx.
+### `monitor_recursos()` — cada 5 minutos
 
-### `salud_sd()` — diagnóstico de la tarjeta SD
+Guarda métrica en CSV y comprueba umbrales. Los umbrales se leen del dict global `UMBRALES` modificable en tiempo de ejecución — por eso los cambios desde el bot tienen efecto inmediato sin reiniciar.
 
-Lee las estadísticas de bloques de `/sys/block/mmcblk0/stat` para obtener
-el número acumulado de lecturas y escrituras. A mayor número de escrituras,
-más desgaste acumula la tarjeta. Complementa con temperatura, uso de disco
-y uptime para dar una visión completa del estado del hardware.
+### `monitor_servicios()` — cada 2 minutos
 
-### `monitor_recursos()` — monitor periódico (cada 5 min)
+Itera `SERVICIOS_WATCH` y ejecuta `systemctl is-active <servicio>`. Si alguno no está `active`, notifica inmediatamente. Respeta el silencio de alertas.
 
-Job registrado en `job_queue` de python-telegram-bot. Comprueba CPU, RAM,
-disco y temperatura contra los umbrales configurados. Si alguno los supera,
-envía un mensaje proactivo al usuario. También llama a `guardar_metrica()`
-para mantener el histórico actualizado.
+### `monitor_docker()` — cada 3 minutos
 
-### `monitor_servicios()` — vigilancia de servicios (cada 2 min)
+Comprueba con `docker ps -a` que todos los contenedores estén `Up`. Notifica si alguno está `Exited` o en error.
 
-Itera sobre `SERVICIOS_WATCH` y ejecuta `systemctl is-active <servicio>`
-para cada uno. Si algún servicio no está `active`, notifica inmediatamente.
+### `monitor_intentos_login()` — cada 10 minutos
 
-### `monitor_docker()` — vigilancia de contenedores (cada 3 min)
+Lee `/var/log/auth.log` incrementalmente usando un offset guardado en `bot_data`. Si detecta 5 o más líneas nuevas con `Failed password` o `Invalid user`, envía alerta con el resumen.
 
-Ejecuta `docker ps -a` y comprueba que todos los contenedores conocidos
-estén en estado `Up`. Notifica si alguno está `Exited` o en estado de error.
+### VPN on/off
 
-### `monitor_intentos_login()` — vigilancia de auth.log (cada 10 min)
+El botón del menú Red/Seg es dinámico — muestra el estado actual y la acción opuesta. Usa `systemctl start/stop wg-quick@wg0` vía sudo. El dashboard también muestra el estado de VPN en tiempo real.
 
-Lee `/var/log/auth.log` incrementalmente (recuerda el offset de la última
-lectura en `context.bot_data`) y cuenta líneas con `Failed password` o
-`Invalid user`. Si hay 5 o más intentos nuevos, envía alerta con el resumen.
+### Kill de procesos zombies
 
-### `router_botones()` — enrutador principal
+Detecta procesos con `psutil.STATUS_ZOMBIE` y los lista. Cada uno tiene un botón de kill que ejecuta `os.kill(pid, SIGKILL)`. Pide confirmación antes de matar.
 
-Función central de la interfaz. Recibe todos los `callback_query` de los
-botones inline y los enruta según el valor de `callback_data`. Cada sección
-del menú tiene su propio bloque `elif`. Registra cada acción en el log de
-actividad mediante `registrar_actividad()`.
+### Uso de red en tiempo real
 
-### `handle_everything()` — gestor de mensajes de texto
+Llama a `psutil.net_io_counters(pernic=True)` dos veces con 2 segundos de diferencia y calcula bytes/s por interfaz. Excluye la interfaz `lo` (loopback).
 
-Gestiona los mensajes de texto y documentos enviados por el usuario. El
-comportamiento depende de `context.user_data['mode']`:
+### Umbrales editables
 
-| Modo | Acción |
-|------|--------|
-| `terminal` | Ejecuta el texto como comando de shell |
-| `upload` | Guarda el documento recibido en `current_path` |
-| `unban_ip` | Desbanea la IP recibida en Fail2Ban |
-| `geoip` | Consulta la IP en ip-api.com |
-| `mkdir` | Crea una carpeta con el nombre recibido |
-| `file_search` | Ejecuta `find` con el término recibido |
-| `None` | Informa de que hay que usar /start |
+Los botones `➖`/`➕` modifican directamente el dict `UMBRALES` en memoria, ajustando ±5 con límites entre 10 y 99. El efecto es inmediato en todos los monitores sin reiniciar el bot.
+
+### Comandos favoritos
+
+El dict `CMDS_FAVORITOS` mapea etiquetas a comandos shell. Al pulsar un botón, se ejecuta el comando correspondiente y se muestra el resultado. Personalizable en la sección de configuración del script.
+
+### Notas rápidas
+
+Se guardan en `NOTAS_FILE` (por defecto `/home/ruben/rab_notas.txt`) con timestamp. Se pueden añadir nuevas o borrar todas desde el bot.
 
 ---
 
 ## Alertas proactivas
 
-El bot funciona de forma proactiva incluso sin que el usuario interactúe.
-Los intervalos son configurables en el bloque `job_queue` al final del script.
+El bot funciona de forma proactiva aunque el usuario no interactúe.
 
 ```python
 jq.run_repeating(monitor_recursos,       interval=300, first=60)   # cada 5 min
 jq.run_repeating(monitor_servicios,      interval=120, first=30)   # cada 2 min
 jq.run_repeating(monitor_docker,         interval=180, first=45)   # cada 3 min
 jq.run_repeating(monitor_intentos_login, interval=600, first=120)  # cada 10 min
-jq.run_daily(resumen_diario, time=datetime.time(hour=8, minute=0, tzinfo=ZONA_HORARIA))
+jq.run_daily(resumen_diario, time=datetime.time(hour=8, minute=0)) # 08:00 diario
 ```
 
-El parámetro `first` indica cuántos segundos esperar tras el arranque antes
-de la primera ejecución, para dar tiempo a que el sistema se estabilice.
+El parámetro `first` indica segundos de espera tras el arranque antes de la primera ejecución.
+
+Todas las alertas respetan el flag de silencio — si están silenciadas, la función retorna inmediatamente sin ejecutar nada. `guardar_metrica()` se llama siempre aunque las alertas estén silenciadas, para no perder el histórico.
 
 ---
 
 ## Troubleshooting
 
-### El bot no responde a /start
-
-**Causa más probable:** Token incorrecto o `MI_USUARIO_ID` mal configurado.
+### El bot no responde al /start
 
 ```bash
-# Verificar que el bot está corriendo
+# Verificar que corre
 sudo systemctl status rab-bot
 
-# Ver logs de error
+# Ver errores
 sudo journalctl -u rab-bot -n 50
 
-# Probar el token manualmente
-curl https://api.telegram.org/bot<TU_TOKEN>/getMe
+# Probar el token
+curl https://api.telegram.org/bot<TOKEN>/getMe
 ```
 
-Si `getMe` devuelve `{"ok":true,...}` el token es correcto. Si devuelve
-`{"ok":false}`, el token es inválido — regenera uno con @BotFather.
+Si `getMe` devuelve `{"ok":true}` el token es correcto. Si no, regenera uno con @BotFather.
 
 ---
 
 ### Error: `ModuleNotFoundError: No module named 'telegram'`
 
-El servicio systemd no está usando el entorno virtual correcto.
+El servicio no está usando el entorno virtual correcto.
 
 ```bash
 # Verificar que el venv existe
-ls /home/$USER/tgbot/venv/bin/python
+ls /home/ruben/tgbot/venv/bin/python
 
-# Verificar que telegram está instalado en el venv
-/home/$USER/tgbot/venv/bin/pip list | grep telegram
+# Verificar instalación
+/home/ruben/tgbot/venv/bin/pip list | grep telegram
 
-# Si no está, instalarlo
-/home/$USER/tgbot/venv/bin/pip install -r /home/$USER/tgbot/requirements.txt
+# Reinstalar si falta
+/home/ruben/tgbot/venv/bin/pip install -r /home/ruben/tgbot/requirements.txt
 ```
 
-Asegúrate de que `ExecStart` en el `.service` apunta a
-`/home/$USER/tgbot/venv/bin/python` y **no** a `/usr/bin/python3`.
+Asegúrate de que `ExecStart` apunta a `venv/bin/python` y **no** a `/usr/bin/python3`.
 
 ---
 
-### Error: `sudo: wg: command not found` o similar
+### El bot pide PIN en cada mensaje
 
-Las rutas en el bloque `sudoers` no coinciden con las del sistema.
+La sesión se almacena en `bot_data` en memoria. Si el bot se reinició, hay que volver a introducir el PIN — es el comportamiento esperado. Si se reinicia demasiado, comprueba los logs:
 
 ```bash
-# Buscar la ruta real de cada comando
-which wg
-which fail2ban-client
-which shutdown
-which reboot
-which apt-get
-which journalctl
-which tail
+sudo journalctl -u rab-bot -f
 ```
-
-Actualiza el bloque en `visudo` con las rutas correctas.
 
 ---
 
-### Los comandos sudo devuelven `Error (rc=1): sudo: a password is required`
-
-El usuario no tiene configurado el acceso sin contraseña para esos comandos.
+### La VPN no se enciende/apaga desde el bot
 
 ```bash
-# Verificar la configuración sudoers
-sudo visudo -c
+# Verificar permiso sudo
+sudo -n systemctl start wg-quick@wg0
+sudo -n systemctl stop wg-quick@wg0
+
+# Si pide contraseña, añadir /usr/bin/systemctl a visudo
+# Verificar nombre de interfaz
+ip link show | grep wg
+```
+
+Asegúrate de que `WG_INTERFACE` en el script coincide con el nombre real de tu interfaz (puede ser `wg0`, `wg1`, etc.).
+
+---
+
+### El escaneo LAN no encuentra dispositivos
+
+```bash
+# Verificar que nmap está instalado
+which nmap
 
 # Probar manualmente
-sudo -n wg show
+sudo nmap -sn 192.168.0.0/24
+
+# Si nmap no está disponible, instalar
+sudo apt install nmap
 ```
 
-Si pide contraseña, el bloque `NOPASSWD` no está bien aplicado.
-Revisa que el bloque en `visudo` usa la ruta exacta del binario.
+Si nmap no está disponible, el bot hace fallback automático a `arp -a` o `ip neigh`, que solo muestra dispositivos con los que se ha comunicado recientemente.
 
 ---
 
 ### El test de velocidad falla o da timeout
 
 ```bash
-# Verificar que speedtest-cli está instalado
+# Verificar instalación
 which speedtest-cli
 
-# Ejecutarlo manualmente para ver el error
+# Probar manualmente
 speedtest-cli --simple
-
-# Si no está instalado
-sudo apt install speedtest-cli
-# o con pip en el venv:
-source /home/$USER/tgbot/venv/bin/activate
-pip install speedtest-cli
-deactivate
 ```
 
-El timeout del test está en 90 segundos. En conexiones muy lentas puede
-no ser suficiente — ajusta el valor en la línea:
+El timeout está en 90 segundos. Si tu conexión es muy lenta, auméntalo en la línea:
+
 ```python
 res = await exec_cmd("speedtest-cli --simple 2>&1", shell=True, timeout=90)
 ```
 
 ---
 
-### Estado de jails de Fail2Ban no muestra nada
+### Los comandos sudo devuelven error de contraseña
 
 ```bash
-# Verificar que fail2ban está activo
-sudo systemctl status fail2ban
+# Verificar configuración sudoers
+sudo visudo -c
 
-# Probar el comando manualmente
-sudo fail2ban-client status
-
-# Ver qué jails están configuradas
-sudo fail2ban-client status | grep "Jail list"
-```
-
-Si el servicio está activo pero no hay jails, revisa
-`/etc/fail2ban/jail.local` — puede que no tengas ninguna jail habilitada.
-
----
-
-### WireGuard muestra error de permisos
-
-```bash
-# El comando wg show necesita permisos de root
-sudo wg show
-
-# Verificar que está en sudoers
+# Probar cada comando individualmente
 sudo -n wg show
+sudo -n fail2ban-client status
+sudo -n journalctl -p err -n 5
 ```
 
----
-
-### El explorador de archivos no navega correctamente
-
-Esto puede ocurrir si el `_PATH_CACHE` se pierde al reiniciar el bot.
-La caché es en memoria — si el bot se reinicia, los hashes anteriores
-dejan de ser válidos. Solución: vuelve al menú principal con `/start`
-y navega de nuevo desde la raíz.
+Si alguno pide contraseña, revisa que la ruta en el bloque `NOPASSWD` sea exactamente la que devuelve `which <comando>`.
 
 ---
 
-### El bot no envía alertas proactivas
+### Las alertas proactivas no llegan
 
 ```bash
-# Verificar que job_queue está activo (requiere el extra [job-queue])
-source /home/$USER/tgbot/venv/bin/activate
+# Verificar que job-queue está instalado
+source /home/ruben/tgbot/venv/bin/activate
 python -c "from telegram.ext import JobQueue; print('OK')"
 deactivate
 ```
 
-Si falla, reinstala con el extra correcto:
+Si falla, reinstalar con el extra correcto:
 
 ```bash
-source /home/$USER/tgbot/venv/bin/activate
+source /home/ruben/tgbot/venv/bin/activate
 pip install "python-telegram-bot[job-queue]==21.6"
 deactivate
 sudo systemctl restart rab-bot
 ```
 
+También comprueba que las alertas no estén silenciadas — el Dashboard muestra `(alertas silenciadas)` si es el caso.
+
 ---
 
-### Mensajes de error sobre `MI_USUARIO_ID` siendo `int` vs `str`
+### MI_USUARIO_ID incorrecto — el bot no responde a nada
 
-Asegúrate de que `MI_USUARIO_ID` es un **número entero**, no una cadena:
+```bash
+# Verificar tu ID real
+# Busca @userinfobot en Telegram y envía /start
+# El ID debe ser un número entero, no una cadena
 
-```python
 MI_USUARIO_ID = 123456789    # correcto
-MI_USUARIO_ID = "123456789"  # incorrecto — causará que el bot no responda
+MI_USUARIO_ID = "123456789"  # incorrecto
 ```
 
 ---
 
-### Alto consumo de CPU por el propio bot
+### Alto consumo de CPU del propio bot
 
-Los jobs de monitorización llaman a `psutil.cpu_percent(interval=2)` que
-bloquea 2 segundos midiendo la CPU. En una Raspberry Pi 3B con 1GB RAM
-esto es normal. Si quieres reducir la carga, aumenta los intervalos de
-los jobs o reduce `interval=2` a `interval=0.5`.
+`psutil.cpu_percent(interval=2)` bloquea 2 segundos por llamada. En Raspberry Pi 3 con carga alta puede ser notable. Para reducirlo, baja el intervalo a `interval=0.5` en los monitores o aumenta los intervalos de los jobs en la sección de inicio.
 
 ---
 
 ## Actualizar
 
 ```bash
-cd /home/$USER/tgbot
+cd /home/ruben/tgbot
 git pull
 source venv/bin/activate
 pip install -r requirements.txt
@@ -739,40 +866,27 @@ sudo systemctl status rab-bot
 ```
 tgbot/
 ├── bot_control.py      # script principal del bot
-├── requirements.txt    # dependencias Python del entorno virtual
-├── rab-bot.service     # unidad systemd para arranque automático
+├── requirements.txt    # dependencias Python
+├── rab-bot.service     # unidad systemd
 └── README.md           # esta documentación
 
-# Ficheros generados en tiempo de ejecución (no incluidos en el repo):
-/home/$USER/rab_actividad.log   # registro CSV de todas las acciones
-/home/$USER/rab_metricas.csv    # histórico de métricas del sistema
+# Ficheros generados en tiempo de ejecución (no incluir en el repo):
+/home/ruben/rab_actividad.log   # log CSV de acciones del bot
+/home/ruben/rab_metricas.csv    # histórico de métricas del sistema
+/home/ruben/rab_notas.txt       # notas guardadas desde el bot
 ```
 
 ---
 
 ## Seguridad
 
-- El bot ignora silenciosamente cualquier mensaje de un usuario distinto a `MI_USUARIO_ID`
-- Las operaciones destructivas (borrar archivos, parar contenedores, reiniciar, apagar) requieren confirmación con un segundo botón antes de ejecutarse
-- Los permisos sudo están acotados a comandos específicos, sin acceso total a root
-- Se recomienda excluir el token del repositorio usando `.gitignore` y una variable de entorno:
-
-```bash
-# En .gitignore
-.env
-
-# En .env
-RAB_TOKEN=123456789:ABCdef...
-
-# En bot_control.py
-import os
-TOKEN = os.environ.get("RAB_TOKEN", "")
-```
-
-Cargar el `.env` en el servicio systemd añadiendo en `[Service]`:
-```ini
-EnvironmentFile=/home/$USER/tgbot/.env
-```
+- El bot ignora cualquier mensaje de un ID distinto a `MI_USUARIO_ID` y te avisa
+- Sin PIN validado ningún botón ni comando funciona
+- La sesión expira automáticamente tras `PIN_TTL_MIN` minutos (por defecto 4h)
+- Tras 3 intentos de PIN fallidos el bot se bloquea 15 minutos y te notifica
+- Las operaciones destructivas (borrar, parar contenedores, reboot, shutdown) requieren confirmación
+- Los permisos sudo están acotados a comandos específicos, sin acceso root total
+- Se recomienda guardar token y PIN en `.env` excluido del repositorio con `.gitignore`
 
 ---
 
